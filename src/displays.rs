@@ -22,7 +22,14 @@ impl Displays {
         let sym_res = ctx.intern(":res");
 
         for conf in rest.base_iter() {
-            let name = conf.car()?.as_symbol()?;
+            let name = conf.car()?;
+            if !name.symbolp() {
+                return Err(Error::new(
+                    ErrorKind::TypeMismatch,
+                    format!("Output name needs to be a symbol: {name}"),
+                ));
+            }
+            let name = name.to_string();
             let params = conf.cdr()?;
 
             let tgt_scale: Option<f64> = plist_get(params.clone(), &sym_scale)?.try_into()?;
