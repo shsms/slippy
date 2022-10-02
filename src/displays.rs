@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use swayipc_async::Connection;
 use tulisp::{plist_get, Error, ErrorKind, TulispContext, TulispValue};
@@ -11,7 +11,7 @@ struct DisplayConfig {
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct Displays {
-    map: BTreeMap<String, DisplayConfig>,
+    list: Vec<(String, DisplayConfig)>,
 }
 
 impl Displays {
@@ -36,8 +36,8 @@ impl Displays {
             let tgt_res: Option<String> = plist_get(params.clone(), &sym_res)?.try_into()?;
 
             displays
-                .map
-                .insert(name, DisplayConfig { tgt_scale, tgt_res });
+                .list
+                .push((name, DisplayConfig { tgt_scale, tgt_res }));
         }
 
         Ok(displays)
@@ -54,7 +54,7 @@ impl Displays {
         }
         let mut next_left = 0;
 
-        for (name, cfg) in self.map.iter() {
+        for (name, cfg) in self.list.iter() {
             if op_map.get(name).is_none() {
                 return Err(Error::new(
                     ErrorKind::Undefined,
