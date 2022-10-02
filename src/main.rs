@@ -1,8 +1,13 @@
-use displays::Displays;
+use std::path::Path;
+use std::process::Command;
+use std::str;
 use std::{cell::RefCell, rc::Rc};
-use tulisp::{tulisp_add_func, tulisp_fn, Error, TulispContext, TulispValue};
+
+use tulisp::{tulisp_add_func, tulisp_fn, Error, ErrorKind, TulispContext, TulispValue};
 
 mod displays;
+use displays::Displays;
+
 mod window_transitions;
 use window_transitions::WindowTransition;
 
@@ -52,20 +57,34 @@ impl StateWrapper {
     }
 }
 
-fn init_tulisp() -> State {
+fn init_tulisp() -> Result<State, Error> {
     let mut ctx = TulispContext::new();
 
     let state = StateWrapper::new(&mut ctx);
 
-    ctx.eval_file("swaycfg.lisp").unwrap();
+    let cfg_path = Command::new("systemd-path")
+        .arg("user-configuration")
+        .output()
+        .map(|dir| {
+            Path::new(str::from_utf8(&dir.stdout).unwrap().trim())
+                .join("slippy")
+                .join("config.lisp")
+        })
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::Undefined,
+                format!("Unable to get user-config path from systemd-path: {e}"),
+            )
+        })?;
+    ctx.eval_file(&cfg_path.to_string_lossy().to_owned())?;
 
     let ret = state.state.as_ref().borrow().clone();
-    ret
+    Ok(ret)
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let wt = init_tulisp();
+    let wt = init_tulisp()?;
     if let Some(disp) = wt.displays {
         disp.run().await?;
     }
