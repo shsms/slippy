@@ -338,15 +338,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "proc-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "quote"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -426,6 +417,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "slippy"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "swayipc-async",
+ "swayipc-types",
+ "tokio",
+ "tulisp",
+]
+
+[[package]]
 name = "smallvec"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -439,17 +441,6 @@ checksum = "02e2d2db9033d13a1567121ddd7a095ee144db4e1ca1b1bda3419bc0da294ebd"
 dependencies = [
  "libc",
  "winapi",
-]
-
-[[package]]
-name = "sway-lisp"
-version = "0.1.0"
-dependencies = [
- "futures",
- "swayipc-async",
- "swayipc-types",
- "tokio",
- "tulisp",
 ]
 
 [[package]]
@@ -542,9 +533,22 @@ dependencies = [
 
 [[package]]
 name = "tulisp"
-version = "0.1.0"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61382c760564e8427ec8d57227ffbc928e0c9dd688d15d642ef69e438490d25a"
 dependencies = [
- "proc-macros",
+ "tulisp-proc-macros",
+]
+
+[[package]]
+name = "tulisp-proc-macros"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fbe9c77e4b0c822a7326eb4e05c0c1e5778e76650ea23679e1d48fbaa1477a0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

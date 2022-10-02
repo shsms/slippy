@@ -1,7 +1,6 @@
 use displays::Displays;
 use std::{cell::RefCell, rc::Rc};
-use swayipc_async::Fallible;
-use tulisp::{tulisp_add_func, tulisp_fn, tulisp_fn_no_eval, Error, TulispContext, TulispValue};
+use tulisp::{tulisp_add_func, tulisp_fn, Error, TulispContext, TulispValue};
 
 mod displays;
 mod window_transitions;
@@ -68,7 +67,7 @@ fn init_tulisp() -> State {
 async fn main() -> Result<(), Error> {
     let wt = init_tulisp();
     if let Some(disp) = wt.displays {
-        disp.run().await;
+        disp.run().await?;
     }
     if let Some(wt) = wt.window_transitions {
         wt.run().await;
