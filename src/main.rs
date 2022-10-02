@@ -3,7 +3,7 @@ use std::process::Command;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
 
-use tulisp::{tulisp_add_func, tulisp_fn, Error, ErrorKind, TulispContext, TulispValue};
+use tulisp::{tulisp_add_func, tulisp_fn, Error, ErrorKind, TulispContext, TulispObject};
 
 mod displays;
 use displays::Displays;
@@ -50,10 +50,10 @@ impl StateWrapper {
     }
 
     #[tulisp_fn]
-    fn displays(&self, ctx: &mut TulispContext, rest: TulispValue) -> Result<TulispValue, Error> {
+    fn displays(&self, ctx: &mut TulispContext, rest: TulispObject) -> Result<TulispObject, Error> {
         let mut state = self.state.as_ref().borrow_mut();
         state.displays = Some(Displays::try_new(ctx, rest)?);
-        Ok(TulispValue::nil())
+        Ok(TulispObject::nil())
     }
 }
 

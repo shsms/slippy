@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use swayipc_async::Connection;
-use tulisp::{plist_get, Error, ErrorKind, TulispContext, TulispValue};
+use tulisp::{plist_get, Error, ErrorKind, TulispContext, TulispObject};
 
 #[derive(Debug, Clone)]
 struct DisplayConfig {
@@ -15,7 +15,7 @@ pub(crate) struct Displays {
 }
 
 impl Displays {
-    pub fn try_new(ctx: &mut TulispContext, rest: TulispValue) -> Result<Self, Error> {
+    pub fn try_new(ctx: &mut TulispContext, rest: TulispObject) -> Result<Self, Error> {
         let mut displays = Self::default();
 
         let sym_scale = ctx.intern(":scale");
