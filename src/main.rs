@@ -1,5 +1,5 @@
 use std::path::Path;
-use std::process::Command;
+use std::process;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
 
@@ -62,7 +62,7 @@ fn init_tulisp() -> Result<State, Error> {
 
     let state = StateWrapper::new(&mut ctx);
 
-    let cfg_path = Command::new("systemd-path")
+    let cfg_path = process::Command::new("systemd-path")
         .arg("user-configuration")
         .output()
         .map(|dir| {
@@ -82,8 +82,7 @@ fn init_tulisp() -> Result<State, Error> {
     Ok(ret)
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn run() -> Result<(), Error> {
     let wt = init_tulisp()?;
     if let Some(disp) = wt.displays {
         disp.run().await?;
@@ -92,4 +91,12 @@ async fn main() -> Result<(), Error> {
         wt.run().await;
     }
     Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    if let Err(e) = run().await {
+        println!("{e}");
+        process::exit(-1);
+    }
 }
