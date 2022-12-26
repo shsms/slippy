@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use futures::StreamExt;
-use swayipc_async::{Connection, Event, EventType, Fallible, Node};
+use swayipc_async::{Connection, Event, EventType, Fallible, Node, WindowChange};
 use tokio::task::JoinHandle;
 
 #[derive(Clone, Copy, Debug)]
@@ -86,6 +86,12 @@ impl WindowTransition {
         let mut event_stream = ev_conn.subscribe(&[EventType::Window]).await.unwrap();
         while let Some(event) = event_stream.next().await {
             if let Event::Window(w) = event.unwrap() {
+                if w.change != WindowChange::New
+                    && w.change != WindowChange::Close
+                    && w.change != WindowChange::Focus
+                {
+                    continue;
+                }
                 if curr.unwrap_or(-1) == w.as_ref().container.id {
                     continue;
                 }
