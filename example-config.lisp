@@ -4,36 +4,123 @@
 (transitions 200 1 0.9)
 
 
-;; configure displays
-(displays
- ;; from left to right
- `(DP-3
-  :scale 1.0
-  :res "3840x2160")
- `(HDMI-1
-   :scale 1.2
-   :res "1920x1080"))
+(configure-outputs
+ :laptop-scale 1.25
+ :laptop-resolution "1920x1080"
+ :monitor-scale 1.25
+ :monitor-resolution "3840x2160")
 
 
-;; or use named values to call `displays'
-(let* (
-       (fhd "1920x1080")
-       (qhd "3840x2160")
 
-       (laptop-screen
-        `(eDP-1))
 
-       (main-screen
-        `(HDMI-A-1))
+(defun configure-outputs (&rest args-plist)
+  (let* ((laptop-scale (plist-get args-plist :laptop-scale))
+         (laptop-resolution (plist-get args-plist :laptop-resolution))
+         (monitor-scale (plist-get args-plist :monitor-scale))
+         (monitor-resolution (plist-get args-plist :monitor-resolution))
 
-       (main-screen-fhd
-        `(HDMI-A-1
-          :scale 1.0
-          :res ,fhd))
+         (outputs (get-outputs))
+         (laptop-monitor (find-monitor-by-name "eDP-1" outputs))
+         (4k-monitor (find-monitor-by-model "LG 4K" outputs))
+         (laptop-active (plist-get laptop-monitor :active))
+         (4k-active (plist-get 4k-monitor :active)))
 
-       (main-screen-qhd
-        `(HDMI-A-1
-          :scale 1.0
-          :res ,qhd)))
+    (thread-last
+      (if-let ((laptop-active)
+               (laptop-name (plist-get laptop-monitor :name)))
+          (progn
+            (print "Only laptop display is active.")
+            (set-output :name laptop-name
+                        :scale laptop-scale
+                        :resolution laptop-resolution)))
 
-  (displays main-screen laptop-screen))
+      (if-let ((4k-active)
+               (4k-name (plist-get 4k-monitor :name)))
+          (progn
+            (print "Only external display is active.")
+            (set-output :name 4k-name
+                        :scale monitor-scale
+                        :resolution monitor-resolution)))
+
+      ;; when both monitors are connected
+      (if-let ((4k-active)
+               (laptop-active)
+               (4k-name (plist-get 4k-monitor :name))
+               (laptop-name (plist-get laptop-monitor :name)))
+
+          (progn
+            (print "Both monitors are active.")
+            (setq laptop-monitor
+                  (set-output :name 4k-name
+                              :scale laptop-scale
+                              :resolution laptop-resolution))
+            (setq 4k-monitor
+                  (set-output :name 4k-name
+                              :scale monitor-scale
+                              :resolution monitor-resolution))
+
+            ;; If using home monitor, set 4k-monitor to the left of
+            ;; the laptop-monitor.  Else, set 4k-monitor to the right of
+            ;; the laptop-monitor
+            (if (equal "SERIAL-NUMBER" (plist-get 4k-monitor :serial))
+                (position-displays 4k-monitor laptop-monitor 'center)
+              (position-displays laptop-monitor 4k-monitor 'bottom)))))))
+
+
+(defun position-displays (left right &optional align)
+  (let ((left-name (plist-get left :name))
+        (right-name (plist-get right :name))
+        (left-width (plist-get left :width))
+        (left-height (plist-get left :height))
+        (right-width (plist-get right :width))
+        (right-height (plist-get right :height)))
+    (when (or (eq align 'top) (null align))
+      (set-output :name left-name
+                  :pos-x 0
+                  :pos-y 0)
+
+      (set-output :name right-name
+                  :pos-x left-width
+                  :pos-y 0))
+
+    (when (eq align 'bottom)
+      (set-output :name left-name
+                  :pos-x 0
+                  :pos-y (if (>= left-height right-height)
+                             0
+                             (- right-height left-height)))
+
+      (set-output :name right-name
+                  :pos-x left-width
+                  :pos-y (if (<= left-height right-height)
+                             0
+                             (- left-height right-height))))
+
+    (when (eq align 'center)
+      (set-output :name left-name
+                  :pos-x 0
+                  :pos-y (if (>= left-height right-height)
+                             0
+                             (/ (- right-height left-height) 2)))
+
+      (set-output :name right-name
+                  :pos-x left-width
+                  :pos-y (if (<= left-height right-height)
+                             0
+                             (/ (- left-height right-height) 2))))))
+
+(defun find-monitor-by-name (name outputs)
+  (seq-find
+   (lambda (output)
+     (and (consp output)
+          (equal name (plist-get output :name))
+          output))
+   outputs))
+
+(defun find-monitor-by-model (model outputs)
+  (seq-find
+   (lambda (output)
+     (and (consp output)
+          (equal model (plist-get output :model))
+          output))
+   outputs))

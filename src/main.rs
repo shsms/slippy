@@ -2,11 +2,9 @@ use std::path::Path;
 use std::process;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
-
 use tulisp::{tulisp_add_func, tulisp_fn, Error, ErrorKind, TulispContext, TulispObject};
 
-mod displays;
-use displays::Displays;
+mod outputs;
 
 mod window_transitions;
 use window_transitions::WindowTransition;
@@ -14,7 +12,6 @@ use window_transitions::WindowTransition;
 #[derive(Default, Clone)]
 struct State {
     window_transitions: Option<WindowTransition>,
-    displays: Option<Displays>,
 }
 
 #[derive(Default, Clone)]
@@ -27,8 +24,6 @@ impl StateWrapper {
         let wrapper = Self::default();
         let next = wrapper.clone();
         tulisp_add_func!(ctx, next.transitions, "transitions");
-        let next = wrapper.clone();
-        tulisp_add_func!(ctx, next.displays, "displays");
         wrapper
     }
 
@@ -48,17 +43,12 @@ impl StateWrapper {
             resolution_ms,
         ));
     }
-
-    #[tulisp_fn]
-    fn displays(&self, ctx: &mut TulispContext, rest: TulispObject) -> Result<TulispObject, Error> {
-        let mut state = self.state.as_ref().borrow_mut();
-        state.displays = Some(Displays::try_new(ctx, rest)?);
-        Ok(TulispObject::nil())
-    }
 }
 
 fn init_tulisp() -> Result<State, Error> {
     let mut ctx = TulispContext::new();
+
+    outputs::register_methods(&mut ctx);
 
     let state = StateWrapper::new(&mut ctx);
 
@@ -84,9 +74,6 @@ fn init_tulisp() -> Result<State, Error> {
 
 async fn run() -> Result<(), Error> {
     let wt = init_tulisp()?;
-    if let Some(disp) = wt.displays {
-        disp.run().await?;
-    }
     if let Some(wt) = wt.window_transitions {
         wt.run().await;
     }
