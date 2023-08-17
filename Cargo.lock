@@ -421,6 +421,7 @@ name = "slippy"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "swayipc",
  "swayipc-async",
  "swayipc-types",
  "tokio",
@@ -441,6 +442,17 @@ checksum = "02e2d2db9033d13a1567121ddd7a095ee144db4e1ca1b1bda3419bc0da294ebd"
 dependencies = [
  "libc",
  "winapi",
+]
+
+[[package]]
+name = "swayipc"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab1dcff328b223d85d7ca767b2e4aadbc13dad550d36b4c6b929b9ad4d26ee9a"
+dependencies = [
+ "serde",
+ "serde_json",
+ "swayipc-types",
 ]
 
 [[package]]

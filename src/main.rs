@@ -2,10 +2,10 @@ use std::path::Path;
 use std::process;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
-
 use tulisp::{tulisp_add_func, tulisp_fn, Error, ErrorKind, TulispContext, TulispObject};
 
 mod displays;
+mod outputs;
 use displays::Displays;
 
 mod window_transitions;
@@ -59,6 +59,8 @@ impl StateWrapper {
 
 fn init_tulisp() -> Result<State, Error> {
     let mut ctx = TulispContext::new();
+
+    outputs::register_methods(&mut ctx);
 
     let state = StateWrapper::new(&mut ctx);
 
