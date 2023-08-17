@@ -139,7 +139,7 @@ fn set_output(ctx: &mut TulispContext, rest: TulispObject) -> Result<TulispObjec
         ));
     }
 
-    let mut cmd = format!("output {}", tgt_name.unwrap());
+    let mut cmd = format!("output {}", tgt_name.as_ref().unwrap());
 
     if tgt_pos_x.is_some() {
         cmd.push_str(&format!(
@@ -171,5 +171,17 @@ fn set_output(ctx: &mut TulispContext, rest: TulispObject) -> Result<TulispObjec
         )
     })?;
 
-    get_outputs(ctx)
+    get_outputs(ctx)?
+        .base_iter()
+        .find(|x| {
+            plist_get(x.clone(), &name)
+                .map(|x| tgt_name == x.try_into().ok())
+                .unwrap_or(false)
+        })
+        .ok_or_else(|| {
+            Error::new(
+                ErrorKind::Uninitialized,
+                format!("set-output: failed to find output: {}", tgt_name.unwrap()),
+            )
+        })
 }
