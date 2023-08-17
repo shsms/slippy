@@ -25,46 +25,43 @@
          (laptop-active (plist-get laptop-monitor :active))
          (4k-active (plist-get 4k-monitor :active)))
 
-    (thread-last
-      (if-let ((laptop-active)
+    (when-let ((laptop-active)
+               (_ (not 4k-active))
                (laptop-name (plist-get laptop-monitor :name)))
-          (progn
-            (print "Only laptop display is active.")
-            (set-output :name laptop-name
-                        :scale laptop-scale
-                        :resolution laptop-resolution)))
+      (print "Only laptop display is active.")
+      (set-output :name laptop-name
+                  :scale laptop-scale
+                  :resolution laptop-resolution))
 
-      (if-let ((4k-active)
+    (when-let ((4k-active)
+               (_ (not laptop-active))
                (4k-name (plist-get 4k-monitor :name)))
-          (progn
-            (print "Only external display is active.")
-            (set-output :name 4k-name
-                        :scale monitor-scale
-                        :resolution monitor-resolution)))
+      (print "Only external display is active.")
+      (set-output :name 4k-name
+                  :scale monitor-scale
+                  :resolution monitor-resolution))
 
-      ;; when both monitors are connected
-      (if-let ((4k-active)
+    ;; when both monitors are connected
+    (when-let ((4k-active)
                (laptop-active)
                (4k-name (plist-get 4k-monitor :name))
                (laptop-name (plist-get laptop-monitor :name)))
+      (print "Both monitors are active.")
+      (setq laptop-monitor
+            (set-output :name laptop-name
+                        :scale laptop-scale
+                        :resolution laptop-resolution))
+      (setq 4k-monitor
+            (set-output :name 4k-name
+                        :scale monitor-scale
+                        :resolution monitor-resolution))
 
-          (progn
-            (print "Both monitors are active.")
-            (setq laptop-monitor
-                  (set-output :name 4k-name
-                              :scale laptop-scale
-                              :resolution laptop-resolution))
-            (setq 4k-monitor
-                  (set-output :name 4k-name
-                              :scale monitor-scale
-                              :resolution monitor-resolution))
-
-            ;; If using home monitor, set 4k-monitor to the left of
-            ;; the laptop-monitor.  Else, set 4k-monitor to the right of
-            ;; the laptop-monitor
-            (if (equal "SERIAL-NUMBER" (plist-get 4k-monitor :serial))
-                (position-displays 4k-monitor laptop-monitor 'center)
-              (position-displays laptop-monitor 4k-monitor 'bottom)))))))
+      ;; If using home monitor, set 4k-monitor to the left of
+      ;; the laptop-monitor.  Else, set 4k-monitor to the right of
+      ;; the laptop-monitor
+      (if (equal "SERIAL-NUMBER" (plist-get 4k-monitor :serial))
+          (position-displays 4k-monitor laptop-monitor 'center)
+          (position-displays laptop-monitor 4k-monitor 'bottom)))))
 
 
 (defun position-displays (left right &optional align)
