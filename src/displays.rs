@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use swayipc_async::Connection;
-use tulisp::{plist_get, Error, ErrorKind, TulispContext, TulispObject};
+use tulisp::{lists::plist_get, Error, ErrorKind, TulispContext, TulispObject};
 
 #[derive(Debug, Clone)]
 struct DisplayConfig {
