@@ -45,12 +45,10 @@ impl StateWrapper {
     }
 }
 
-fn init_tulisp() -> Result<State, Error> {
-    let mut ctx = TulispContext::new();
+fn init_tulisp(ctx: &mut TulispContext) -> Result<State, Error> {
+    outputs::register_methods(ctx);
 
-    outputs::register_methods(&mut ctx);
-
-    let state = StateWrapper::new(&mut ctx);
+    let state = StateWrapper::new(ctx);
 
     let cfg_path = process::Command::new("systemd-path")
         .arg("user-configuration")
@@ -72,8 +70,8 @@ fn init_tulisp() -> Result<State, Error> {
     Ok(ret)
 }
 
-async fn run() -> Result<(), Error> {
-    let wt = init_tulisp()?;
+async fn run(ctx: &mut TulispContext) -> Result<(), Error> {
+    let wt = init_tulisp(ctx)?;
     if let Some(wt) = wt.window_transitions {
         wt.run().await;
     }
@@ -82,8 +80,10 @@ async fn run() -> Result<(), Error> {
 
 #[tokio::main]
 async fn main() {
-    if let Err(e) = run().await {
-        println!("{e}");
+    let mut ctx = TulispContext::new();
+
+    if let Err(e) = run(&mut ctx).await {
+        println!("{}", e.format(&ctx));
         process::exit(-1);
     }
 }
