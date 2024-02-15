@@ -544,18 +544,18 @@ dependencies = [
 
 [[package]]
 name = "tulisp"
-version = "0.11.2"
+version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5203b0ea125ac623cddce9a54f3534541e05af7bb76956ef196fc33d7ac018d"
+checksum = "2764fec65bcbddb95662cf6abf0111b2bc4755e0f404936acd87aecb1c627f9d"
 dependencies = [
  "tulisp-proc-macros",
 ]
 
 [[package]]
 name = "tulisp-proc-macros"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2b5258dbc810fc094d8d0a358895db787f955cc9aeeba0d3eb1b96e1722a0d4c"
+checksum = "791784f92d89bd40172d70b96476e42582c77416f40f24b068f8403874bf7c87"
 dependencies = [
  "proc-macro2",
  "quote",
