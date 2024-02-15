@@ -2,10 +2,7 @@ use std::rc::Rc;
 
 use swayipc::Connection;
 
-use tulisp::{
-    intern, lists::plist_get, tulisp_add_func, tulisp_fn, Error, ErrorKind, TulispContext,
-    TulispObject,
-};
+use tulisp::{intern, lists::plist_get, Error, ErrorKind, TulispContext, TulispObject};
 
 intern! {
     #[derive(Clone)]
@@ -38,13 +35,16 @@ pub(crate) fn init(ctx: &mut TulispContext) {
         kw: Keywords::new(ctx),
     });
     let copy = tm.clone();
-    tulisp_add_func!(ctx, copy.get_outputs, "get-outputs");
-    tulisp_add_func!(ctx, tm.set_output, "set-output");
+    ctx.add_special_form("get-outputs", move |a, b| copy.get_outputs(a, b));
+    ctx.add_special_form("set-output", move |a, b| tm.set_output(a, b));
 }
 
 impl Output {
-    #[tulisp_fn]
-    fn get_outputs(&self) -> Result<TulispObject, Error> {
+    fn get_outputs(
+        &self,
+        _ctx: &mut TulispContext,
+        _args: &TulispObject,
+    ) -> Result<TulispObject, Error> {
         let mut conn = Connection::new().map_err(|e| {
             Error::new(
                 ErrorKind::Uninitialized,
@@ -123,15 +123,18 @@ impl Output {
         Ok(results)
     }
 
-    #[tulisp_fn]
-    fn set_output(&self, rest: TulispObject) -> Result<TulispObject, Error> {
-        let args = rest.clone();
+    fn set_output(
+        &self,
+        ctx: &mut TulispContext,
+        plist: &TulispObject,
+    ) -> Result<TulispObject, Error> {
+        let plist = ctx.eval_each(plist)?;
 
-        let tgt_name: Option<String> = plist_get(&args, &self.kw.name)?.try_into()?;
-        let tgt_scale: Option<f64> = plist_get(&args, &self.kw.scale)?.try_into()?;
-        let tgt_resolution: Option<String> = plist_get(&args, &self.kw.resolution)?.try_into()?;
-        let tgt_pos_x: Option<i64> = plist_get(&args, &self.kw.pos_x)?.try_into()?;
-        let tgt_pos_y: Option<i64> = plist_get(&args, &self.kw.pos_y)?.try_into()?;
+        let tgt_name: Option<String> = plist_get(&plist, &self.kw.name)?.try_into()?;
+        let tgt_scale: Option<f64> = plist_get(&plist, &self.kw.scale)?.try_into()?;
+        let tgt_resolution: Option<String> = plist_get(&plist, &self.kw.resolution)?.try_into()?;
+        let tgt_pos_x: Option<i64> = plist_get(&plist, &self.kw.pos_x)?.try_into()?;
+        let tgt_pos_y: Option<i64> = plist_get(&plist, &self.kw.pos_y)?.try_into()?;
 
         if tgt_name.is_none() {
             return Err(Error::new(
@@ -186,7 +189,7 @@ impl Output {
             )
         })?;
 
-        self.get_outputs()?
+        self.get_outputs(ctx, &TulispObject::nil())?
             .base_iter()
             .find(|x| {
                 plist_get(x, &self.kw.name)

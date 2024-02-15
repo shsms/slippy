@@ -2,7 +2,8 @@ use std::path::Path;
 use std::process;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
-use tulisp::{tulisp_add_func, tulisp_fn, Error, ErrorKind, TulispContext, TulispObject};
+use tulisp::destruct_bind;
+use tulisp::{Error, ErrorKind, TulispContext, TulispObject};
 
 mod outputs;
 
@@ -23,25 +24,27 @@ impl StateWrapper {
     fn new(ctx: &mut TulispContext) -> Self {
         let wrapper = Self::default();
         let next = wrapper.clone();
-        tulisp_add_func!(ctx, next.transitions, "transitions");
+        ctx.add_special_form("transitions", move |a, b| next.transitions(a, b));
         wrapper
     }
 
-    #[tulisp_fn]
     fn transitions(
         &self,
-        duration_ms: i64,
-        active_opacity: f64,
-        inactive_opacity: f64,
-        resolution_ms: Option<i64>,
-    ) {
+        ctx: &mut TulispContext,
+        args: &TulispObject,
+    ) -> Result<TulispObject, Error> {
+        let args = ctx.eval_each(args)?;
+
+        destruct_bind!((duration_ms active_opacity inactive_opacity &optional resolution_ms) = args);
+
         let mut state = self.state.as_ref().borrow_mut();
         state.window_transitions = Some(WindowTransition::new(
-            duration_ms,
-            active_opacity,
-            inactive_opacity,
-            resolution_ms,
+            duration_ms.try_into()?,
+            active_opacity.try_into()?,
+            inactive_opacity.try_into()?,
+            resolution_ms.try_into()?,
         ));
+        Ok(TulispObject::nil())
     }
 }
 
