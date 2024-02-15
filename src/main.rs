@@ -46,7 +46,7 @@ impl StateWrapper {
 }
 
 fn init_tulisp(ctx: &mut TulispContext) -> Result<State, Error> {
-    outputs::register_methods(ctx);
+    outputs::init(ctx);
 
     let state = StateWrapper::new(ctx);
 
