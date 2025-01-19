@@ -14,6 +14,7 @@ intern! {
         active: ":active",
         resolution: ":resolution",
         current_mode: ":current-mode",
+        transform: ":transform",
         refresh: ":refresh",
         scale: ":scale",
         pos_x: ":pos-x",
@@ -90,6 +91,10 @@ impl Output {
                         .unwrap_or_default(),
                 ),
                 (
+                    self.kw.transform.clone(),
+                    output.transform.map(|x| x.into()).unwrap_or_default(),
+                ),
+                (
                     self.kw.scale.clone(),
                     output.scale.map(|x| x.into()).unwrap_or_default(),
                 ),
@@ -158,6 +163,31 @@ impl Output {
         }
 
         let mut cmd = format!("output {}", tgt_name.as_ref().unwrap());
+
+        if let Some(tgt_transform) =
+            TryInto::<Option<String>>::try_into(plist_get(&plist, &self.kw.transform)?)?
+        {
+            if tgt_transform != "normal"
+                && tgt_transform != "90"
+                && tgt_transform != "180"
+                && tgt_transform != "270"
+                && tgt_transform != "flipped-90"
+                && tgt_transform != "flipped-180"
+                && tgt_transform != "flipped-270"
+            {
+                return Err(Error::new(
+                    ErrorKind::TypeMismatch,
+                    format!(
+                        concat!(
+                            "set-output: invalid transform: {}. ",
+                            "Must be one of: normal, 90, 180, 270, flipped-90, flipped-180, flipped-270."
+                        ),
+                        tgt_transform
+                    ),
+                ));
+            }
+            cmd.push_str(&format!(" transform {}", tgt_transform));
+        }
 
         if tgt_pos_x.is_some() {
             cmd.push_str(&format!(
