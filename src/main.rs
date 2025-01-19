@@ -2,8 +2,7 @@ use std::path::Path;
 use std::process;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
-use tulisp::destruct_bind;
-use tulisp::{Error, ErrorKind, TulispContext, TulispObject};
+use tulisp::{destruct_bind, tulisp_fn, Error, ErrorKind, TulispContext, TulispObject};
 
 mod outputs;
 
@@ -84,6 +83,11 @@ async fn run(ctx: &mut TulispContext) -> Result<(), Error> {
 #[tokio::main]
 async fn main() {
     let mut ctx = TulispContext::new();
+
+    #[tulisp_fn(add_func = "ctx", name = "string<")]
+    fn string_lt(a: String, b: String) -> bool {
+        a < b
+    }
 
     if let Err(e) = run(&mut ctx).await {
         println!("{}", e.format(&ctx));
