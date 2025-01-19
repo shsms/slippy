@@ -3,121 +3,101 @@
 ;; gradually change opacity.
 (transitions 200 1 0.9)
 
+;;;;;;;;;;;;;
+;; Configs ;;
+;;;;;;;;;;;;;
 
-(configure-outputs
- :laptop-scale 1.25
- :laptop-resolution "1920x1080"
- :monitor-scale 1.25
- :monitor-resolution "3840x2160")
+(let* ((outputs (get-outputs))
+       (serials (get-monitor-serials outputs))
+       (fhd "1920x1080")
+       (4k "3840x2160"))
+  (cond
 
+    ;;;;;;;;;;;;;;;;;;
+    ;; home desktop ;;
+    ;;;;;;;;;;;;;;;;;;
+    ((and (equal serials '("MONITOR-SERIAL-NUMBER"))
+          (equal (length outputs) 1))
+        (set-output
+         :name (name-from-serial (car serials) outputs)
+         :scale 1.38
+         :resolution 4k
+         :transform "normal"))
 
+    ;;;;;;;;;;;;;;;;;
+    ;; home laptop ;;
+    ;;;;;;;;;;;;;;;;;
+    ((equal serials '("MONITOR-SERIAL-NUMBER"))
+     (let ((horiz (name-from-serial (car serials) outputs)))
+       (set-output :name "eDP-1" :scale 1.1 :resolution fhd :transform "normal")
+       (set-output :name horiz   :scale 1.25 :resolution 4k  :transform "normal")
+       ;; usually put the laptop to the right of the monitor at home.
+       (order-displays horiz "eDP-1")))
 
+    ;;;;;;;;;;;;;;;;;;
+    ;; work desk 12 ;;
+    ;;;;;;;;;;;;;;;;;;
+    ((equal serials '("MONITOR-SERIAL-NUMBER" "MONITOR-SERIAL-NUMBER"))
+     (let ((horiz (name-from-serial (cadr serials) outputs))
+           (vert (name-from-serial (car serials)  outputs)))
+       (set-output :name "eDP-1" :scale 1.1 :resolution fhd :transform "normal")
+       (set-output :name horiz   :scale 1.25 :resolution 4k  :transform "normal")
+       (set-output :name vert    :scale 1.25 :resolution 4k  :transform "90")
+       ;; usually put the laptop to the left of the monitors at work.
+       (order-displays "eDP-1" horiz vert)))
 
-(defun configure-outputs (&rest args-plist)
-  (let* ((laptop-scale (plist-get args-plist :laptop-scale))
-         (laptop-resolution (plist-get args-plist :laptop-resolution))
-         (monitor-scale (plist-get args-plist :monitor-scale))
-         (monitor-resolution (plist-get args-plist :monitor-resolution))
-
-         (outputs (get-outputs))
-         (laptop-monitor (find-monitor-by-name "eDP-1" outputs))
-         (4k-monitor (find-monitor-by-model "LG 4K" outputs))
-         (laptop-active (plist-get laptop-monitor :active))
-         (4k-active (plist-get 4k-monitor :active)))
-
-    (when-let ((laptop-active)
-               (_ (not 4k-active))
-               (laptop-name (plist-get laptop-monitor :name)))
-      (print "Only laptop display is active.")
-      (set-output :name laptop-name
-                  :scale laptop-scale
-                  :resolution laptop-resolution))
-
-    (when-let ((4k-active)
-               (_ (not laptop-active))
-               (4k-name (plist-get 4k-monitor :name)))
-      (print "Only external display is active.")
-      (set-output :name 4k-name
-                  :scale monitor-scale
-                  :resolution monitor-resolution))
-
-    ;; when both monitors are connected
-    (when-let ((4k-active)
-               (laptop-active)
-               (4k-name (plist-get 4k-monitor :name))
-               (laptop-name (plist-get laptop-monitor :name)))
-      (print "Both monitors are active.")
-      (setq laptop-monitor
-            (set-output :name laptop-name
-                        :scale laptop-scale
-                        :resolution laptop-resolution))
-      (setq 4k-monitor
-            (set-output :name 4k-name
-                        :scale monitor-scale
-                        :resolution monitor-resolution))
-
-      ;; If using home monitor, set 4k-monitor to the left of
-      ;; the laptop-monitor.  Else, set 4k-monitor to the right of
-      ;; the laptop-monitor
-      (if (equal "SERIAL-NUMBER" (plist-get 4k-monitor :serial))
-          (position-displays 4k-monitor laptop-monitor 'center)
-          (position-displays laptop-monitor 4k-monitor 'bottom)))))
+    ;; Unknown desks
+    (t (print (format "Unknown displays. Please update the configuration for serials: %s" serials)))))
 
 
-(defun position-displays (left right &optional align)
-  (let ((left-name (plist-get left :name))
-        (right-name (plist-get right :name))
-        (left-width (plist-get left :width))
-        (left-height (plist-get left :height))
-        (right-width (plist-get right :width))
-        (right-height (plist-get right :height)))
-    (when (or (eq align 'top) (null align))
-      (set-output :name left-name
-                  :pos-x 0
-                  :pos-y 0)
+;;;;;;;;;;;;;;;;;;;;;;
+;; Helper functions ;;
+;;;;;;;;;;;;;;;;;;;;;;
 
-      (set-output :name right-name
-                  :pos-x left-width
-                  :pos-y 0))
+(defun order-displays (&rest names)
+  "Orders displays with given NAMES aligning them at the bottom."
+  (let ((outputs (get-outputs))
+        (displays (seq-map (lambda (name) (find-monitor-by-name name outputs)) names))
+        (heights (seq-map (lambda (display) (plist-get display :height)) displays))
+        (max-height (eval `(max ,@heights)))
+        (x 0))
+    (dolist (display displays)
+      (let ((y (- max-height (plist-get display :height))))
+        (set-output :name (plist-get display :name)
+                    :pos-x x
+                    :pos-y y))
+      (setq x (+ x (plist-get display :width))))))
 
-    (when (eq align 'bottom)
-      (set-output :name left-name
-                  :pos-x 0
-                  :pos-y (if (>= left-height right-height)
-                             0
-                             (- right-height left-height)))
-
-      (set-output :name right-name
-                  :pos-x left-width
-                  :pos-y (if (<= left-height right-height)
-                             0
-                             (- left-height right-height))))
-
-    (when (eq align 'center)
-      (set-output :name left-name
-                  :pos-x 0
-                  :pos-y (if (>= left-height right-height)
-                             0
-                             (/ (- right-height left-height) 2)))
-
-      (set-output :name right-name
-                  :pos-x left-width
-                  :pos-y (if (<= left-height right-height)
-                             0
-                             (/ (- left-height right-height) 2))))))
 
 (defun find-monitor-by-name (name outputs)
+  "Returns the first monitor with given NAME in OUTPUTS."
   (seq-find
-   (lambda (output)
-     (and (consp output)
-          (equal name (plist-get output :name))
-          output))
+   (lambda (output) (equal name (plist-get output :name)))
    outputs))
 
 (defun find-monitor-by-model (model outputs)
+  "Returns the first monitor with given MODEL in OUTPUTS."
   (seq-find
-   (lambda (output)
-     (and (consp output)
-          (equal model (plist-get output :model))
-          output))
+   (lambda (output) (equal model (plist-get output :model)))
    outputs))
+
+
+(defun find-monitor-by-serial (serial outputs)
+  "Returns the monitor with given SERIAL in OUTPUTS."
+  (seq-find
+   (lambda (output) (equal serial (plist-get output :serial)))
+   outputs))
+
+
+(defun name-from-serial (serial outputs)
+  "Returns the name of the monitor with given SERIAL in OUTPUTS."
+  (plist-get (find-monitor-by-serial serial outputs) :name))
+
+
+(defun get-monitor-serials (outputs)
+  "Returns a list of serials of all monitors in OUTPUTS."
+  (sort
+   (thread-last outputs
+                (seq-filter (lambda (plist) (not (equal "eDP-1" (plist-get plist :name)))))
+                (seq-map (lambda (plist) (plist-get plist :serial))))
+   (lambda (a b) (string< a b))))
