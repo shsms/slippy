@@ -515,9 +515,9 @@ dependencies = [
 
 [[package]]
 name = "tulisp"
-version = "0.26.0"
+version = "0.26.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31340e7f8c71f2f5b7ce9eb457ba405cec067e977b9531634f9f9441ee865e3b"
+checksum = "f07dbb854775d70c37414c6c6c1b83121694daa1d256055b4e7927cc04414c38"
 
 [[package]]
 name = "unicode-ident"
