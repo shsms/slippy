@@ -2,7 +2,8 @@ use std::path::Path;
 use std::process;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
-use tulisp::{destruct_bind, tulisp_fn, Error, ErrorKind, TulispContext, TulispObject};
+use tulisp::Plist;
+use tulisp::{Error, TulispContext};
 
 mod outputs;
 
@@ -23,27 +24,11 @@ impl StateWrapper {
     fn new(ctx: &mut TulispContext) -> Self {
         let wrapper = Self::default();
         let next = wrapper.clone();
-        ctx.add_special_form("transitions", move |a, b| next.transitions(a, b));
+        ctx.add_function("transitions", move |t: Plist<WindowTransition>| {
+            let mut state = next.state.as_ref().borrow_mut();
+            state.window_transitions = Some(t.into_inner())
+        });
         wrapper
-    }
-
-    fn transitions(
-        &self,
-        ctx: &mut TulispContext,
-        args: &TulispObject,
-    ) -> Result<TulispObject, Error> {
-        let args = ctx.eval_each(args)?;
-
-        destruct_bind!((duration_ms active_opacity inactive_opacity &optional resolution_ms) = args);
-
-        let mut state = self.state.as_ref().borrow_mut();
-        state.window_transitions = Some(WindowTransition::new(
-            duration_ms.try_into()?,
-            active_opacity.try_into()?,
-            inactive_opacity.try_into()?,
-            resolution_ms.try_into()?,
-        ));
-        Ok(TulispObject::nil())
     }
 }
 
@@ -61,10 +46,9 @@ fn init_tulisp(ctx: &mut TulispContext) -> Result<State, Error> {
                 .join("config.lisp")
         })
         .map_err(|e| {
-            Error::new(
-                ErrorKind::Undefined,
-                format!("Unable to get user-config path from systemd-path: {e}"),
-            )
+            Error::os_error(format!(
+                "Unable to get user-config path from systemd-path: {e}"
+            ))
         })?;
     ctx.eval_file(&cfg_path.to_string_lossy().to_owned())?;
 
@@ -83,11 +67,6 @@ async fn run(ctx: &mut TulispContext) -> Result<(), Error> {
 #[tokio::main]
 async fn main() {
     let mut ctx = TulispContext::new();
-
-    #[tulisp_fn(add_func = "ctx", name = "string<")]
-    fn string_lt(a: String, b: String) -> bool {
-        a < b
-    }
 
     if let Err(e) = run(&mut ctx).await {
         println!("{}", e.format(&ctx));
