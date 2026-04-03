@@ -2,7 +2,8 @@ use std::path::Path;
 use std::process;
 use std::str;
 use std::{cell::RefCell, rc::Rc};
-use tulisp::{Error, TulispContext, TulispObject};
+use tulisp::Plist;
+use tulisp::{Error, TulispContext};
 
 mod outputs;
 
@@ -23,22 +24,10 @@ impl StateWrapper {
     fn new(ctx: &mut TulispContext) -> Self {
         let wrapper = Self::default();
         let next = wrapper.clone();
-        ctx.add_function(
-            "transitions",
-            move |duration_ms: i64,
-                  active_opacity: f64,
-                  inactive_opacity: f64,
-                  resolution_ms: Option<i64>| {
-                let mut state = next.state.as_ref().borrow_mut();
-                state.window_transitions = Some(WindowTransition::new(
-                    duration_ms.try_into().unwrap(),
-                    active_opacity.try_into().unwrap(),
-                    inactive_opacity.try_into().unwrap(),
-                    resolution_ms.map(|ms| ms.try_into().unwrap()),
-                ));
-                TulispObject::nil()
-            },
-        );
+        ctx.add_function("transitions", move |t: Plist<WindowTransition>| {
+            let mut state = next.state.as_ref().borrow_mut();
+            state.window_transitions = Some(t.into_inner())
+        });
         wrapper
     }
 }

@@ -1,7 +1,9 @@
 ;; set active window opacity 1.0, inactive window opacity 0.9, and
 ;; everytime a different window becomes active, take 200ms to
 ;; gradually change opacity.
-(transitions 200 1 0.9)
+(transitions :duration-ms 200
+             :active-opacity 1
+             :inactive-opacity 0.9)
 
 ;;;;;;;;;;;;;
 ;; Configs ;;

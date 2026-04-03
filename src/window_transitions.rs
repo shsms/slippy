@@ -1,32 +1,22 @@
 use std::time::Duration;
+use tulisp::TulispContext;
 
 use futures::StreamExt;
 use swayipc_async::{Connection, Event, EventType, Fallible, Node, WindowChange};
 use tokio::task::JoinHandle;
+use tulisp::AsPlist;
 
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct WindowTransition {
-    duration_ms: u64,
-    active_opacity: f64,
-    inactive_opacity: f64,
-    resolution_ms: u64,
+AsPlist! {
+    #[derive(Clone, Copy, Debug)]
+    pub(crate) struct WindowTransition {
+        duration_ms<":duration-ms">: i64,
+        active_opacity<":active-opacity">: f64,
+        inactive_opacity<":inactive-opacity">: f64,
+        resolution_ms<":resolution-ms">: i64 {= 20},
+    }
 }
 
 impl WindowTransition {
-    pub fn new(
-        duration_ms: i64,
-        active_opacity: f64,
-        inactive_opacity: f64,
-        resolution_ms: Option<i64>,
-    ) -> Self {
-        WindowTransition {
-            duration_ms: duration_ms as u64,
-            active_opacity,
-            inactive_opacity,
-            resolution_ms: resolution_ms.unwrap_or(20) as u64,
-        }
-    }
-
     async fn set_opacity(
         &self,
         conn: &mut Connection,
@@ -43,7 +33,7 @@ impl WindowTransition {
     async fn perform(self, prev_id: Option<i64>, next_id: Option<i64>) {
         let mut conn = Connection::new().await.unwrap();
         let count = self.duration_ms / self.resolution_ms;
-        let res = Duration::from_millis(self.resolution_ms);
+        let res = Duration::from_millis(self.resolution_ms as u64);
         let div = count as f64 / (self.active_opacity - self.inactive_opacity);
         for ii in 0..count {
             self.set_opacity(&mut conn, prev_id, self.active_opacity - (ii as f64) / div)
