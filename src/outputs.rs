@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use swayipc::Connection;
 
-use tulisp::{intern, lists::plist_get, Error, ErrorKind, TulispContext, TulispObject};
+use tulisp::{AsPlist, Error, Plist, TulispContext, TulispObject, intern, lists::plist_get};
 
 intern! {
     #[derive(Clone)]
@@ -31,33 +31,37 @@ struct Output {
     kw: Keywords,
 }
 
+AsPlist! {
+    struct SetOutputParams {
+        name: String,
+        resolution: Option<String> {= None},
+        transform: Option<String> {= None},
+        refresh: Option<f64> {= None},
+        scale: Option<f64> {= None},
+        pos_x<":pos-x">: Option<i64> {= None},
+        pos_y<":pos-y">: Option<i64> {= None},
+    }
+}
+
 pub(crate) fn init(ctx: &mut TulispContext) {
     let tm = Rc::new(Output {
         kw: Keywords::new(ctx),
     });
     let copy = tm.clone();
-    ctx.add_special_form("get-outputs", move |a, b| copy.get_outputs(a, b));
-    ctx.add_special_form("set-output", move |a, b| tm.set_output(a, b));
+    ctx.add_function("get-outputs", move || copy.get_outputs());
+    ctx.add_function("set-output", move |p: Plist<SetOutputParams>| {
+        tm.set_output(p)
+    });
 }
 
 impl Output {
-    fn get_outputs(
-        &self,
-        _ctx: &mut TulispContext,
-        _args: &TulispObject,
-    ) -> Result<TulispObject, Error> {
+    fn get_outputs(&self) -> Result<TulispObject, Error> {
         let mut conn = Connection::new().map_err(|e| {
-            Error::new(
-                ErrorKind::Uninitialized,
-                format!("get-outputs: failed to connect to sway: {}", e),
-            )
+            Error::os_error(format!("get-outputs: failed to connect to sway: {}", e))
         })?;
-        let outputs = conn.get_outputs().map_err(|e| {
-            Error::new(
-                ErrorKind::Uninitialized,
-                format!("get-outputs: failed to get outputs: {}", e),
-            )
-        })?;
+        let outputs = conn
+            .get_outputs()
+            .map_err(|e| Error::os_error(format!("get-outputs: failed to get outputs: {}", e)))?;
         let results = TulispObject::nil();
 
         for output in outputs {
@@ -128,45 +132,23 @@ impl Output {
         Ok(results)
     }
 
-    fn set_output(
-        &self,
-        ctx: &mut TulispContext,
-        plist: &TulispObject,
-    ) -> Result<TulispObject, Error> {
-        let plist = ctx.eval_each(plist)?;
-
-        let tgt_name: Option<String> = plist_get(&plist, &self.kw.name)?.try_into()?;
-        let tgt_scale: Option<f64> = plist_get(&plist, &self.kw.scale)?.try_into()?;
-        let tgt_resolution: Option<String> = plist_get(&plist, &self.kw.resolution)?.try_into()?;
-        let tgt_pos_x: Option<i64> = plist_get(&plist, &self.kw.pos_x)?.try_into()?;
-        let tgt_pos_y: Option<i64> = plist_get(&plist, &self.kw.pos_y)?.try_into()?;
-
-        if tgt_name.is_none() {
-            return Err(Error::new(
-                ErrorKind::MissingArgument,
-                "set-output: no output name specified.".into(),
-            ));
-        }
-        if (tgt_pos_x.is_none() && tgt_pos_y.is_some())
-            || (tgt_pos_x.is_some() && tgt_pos_y.is_none())
+    fn set_output(&self, plist: Plist<SetOutputParams>) -> Result<TulispObject, Error> {
+        if (plist.pos_x.is_none() && plist.pos_y.is_some())
+            || (plist.pos_x.is_some() && plist.pos_y.is_none())
         {
-            return Err(Error::new(
-                ErrorKind::MissingArgument,
-                "set-output: pos-x and pos-y must be specified together.".into(),
+            return Err(Error::invalid_argument(
+                "set-output: pos-x and pos-y must be specified together.",
             ));
         }
-        if tgt_resolution.is_none() && tgt_scale.is_none() && tgt_pos_x.is_none() {
-            return Err(Error::new(
-                ErrorKind::MissingArgument,
-                "set-output: no target parameters specified.".into(),
+        if plist.resolution.is_none() && plist.scale.is_none() && plist.pos_x.is_none() {
+            return Err(Error::invalid_argument(
+                "set-output: no target parameters specified.",
             ));
         }
 
-        let mut cmd = format!("output {}", tgt_name.as_ref().unwrap());
+        let mut cmd = format!("output {}", plist.name);
 
-        if let Some(tgt_transform) =
-            TryInto::<Option<String>>::try_into(plist_get(&plist, &self.kw.transform)?)?
-        {
+        if let Some(ref tgt_transform) = plist.transform {
             if tgt_transform != "normal"
                 && tgt_transform != "90"
                 && tgt_transform != "180"
@@ -175,62 +157,54 @@ impl Output {
                 && tgt_transform != "flipped-180"
                 && tgt_transform != "flipped-270"
             {
-                return Err(Error::new(
-                    ErrorKind::TypeMismatch,
-                    format!(
-                        concat!(
-                            "set-output: invalid transform: {}. ",
-                            "Must be one of: normal, 90, 180, 270, flipped-90, flipped-180, flipped-270."
-                        ),
-                        tgt_transform
+                return Err(Error::invalid_argument(format!(
+                    concat!(
+                        "set-output: invalid transform: {}. ",
+                        "Must be one of: normal, 90, 180, 270, flipped-90, flipped-180, flipped-270."
                     ),
-                ));
+                    tgt_transform
+                )));
             }
             cmd.push_str(&format!(" transform {}", tgt_transform));
         }
 
-        if tgt_pos_x.is_some() {
-            cmd.push_str(&format!(
-                " pos {} {}",
-                tgt_pos_x.unwrap(),
-                tgt_pos_y.unwrap()
-            ));
+        match (plist.pos_x, plist.pos_y) {
+            (Some(x), Some(y)) => {
+                cmd.push_str(&format!(" pos {} {}", x, y));
+            }
+            (None, None) => {}
+            _ => println!(
+                "Warning: pos-x and pos-y should be specified together. Ignoring position parameters."
+            ),
         }
 
-        if tgt_resolution.is_some() {
-            cmd.push_str(&format!(" res {}", tgt_resolution.unwrap()));
+        if let Some(ref res) = plist.resolution {
+            cmd.push_str(&format!(" res {res}"));
         }
-
-        if tgt_scale.is_some() {
-            cmd.push_str(&format!(" scale {}", tgt_scale.unwrap()));
+        if let Some(ref scale) = plist.scale {
+            cmd.push_str(&format!(" scale {scale}"));
         }
 
         let mut conn = Connection::new().map_err(|e| {
-            Error::new(
-                ErrorKind::Uninitialized,
-                format!("set-output: failed to connect to sway: {}", e),
-            )
+            Error::os_error(format!("set-output: failed to connect to sway: {}", e))
         })?;
 
-        conn.run_command(&cmd).map_err(|e| {
-            Error::new(
-                ErrorKind::Uninitialized,
-                format!("set-output: failed to run command: {}", e),
-            )
-        })?;
+        conn.run_command(&cmd)
+            .map_err(|e| Error::os_error(format!("set-output: failed to run command: {}", e)))?;
 
-        self.get_outputs(ctx, &TulispObject::nil())?
+        self.get_outputs()?
             .base_iter()
             .find(|x| {
                 plist_get(x, &self.kw.name)
-                    .map(|x| tgt_name == x.try_into().ok())
+                    .map(|x| {
+                        x.try_into()
+                            .ok()
+                            .is_some_and(|name: String| name == plist.name)
+                    })
                     .unwrap_or(false)
             })
             .ok_or_else(|| {
-                Error::new(
-                    ErrorKind::Uninitialized,
-                    format!("set-output: failed to find output: {}", tgt_name.unwrap()),
-                )
+                Error::os_error(format!("set-output: failed to find output: {}", plist.name))
             })
     }
 }
